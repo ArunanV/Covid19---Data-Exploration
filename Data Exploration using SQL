@@ -1,0 +1,102 @@
+
+
+
+SELECT *
+FROM Covid19Data..CovidDeaths 
+WHERE continent is not null
+ORDER BY 3,4
+
+--SELECT *
+--FROM Covid19Data..CovidVacs
+--ORDER BY 3,4
+
+-- Select data that we are going to be using
+
+SELECT Location, date, total_cases, new_cases, total_deaths, population
+FROM Covid19Data..CovidDeaths
+WHERE continent is not null
+ORDER BY 1,2
+
+
+-- Total Cases vs Total Deaths
+
+SELECT Location, date, total_cases, total_deaths, (total_deaths/total_cases)*100 AS DeathPercentage
+FROM Covid19Data..CovidDeaths
+WHERE Location = 'India' AND continent is not null
+ORDER BY 1,2
+
+
+-- Total Cases vs Population
+
+SELECT Location, date, population, total_cases, (total_cases/population)*100 AS PopulationInfectedPercentage
+FROM Covid19Data..CovidDeaths
+--WHERE Location = 'India'
+ORDER BY 1,2
+
+
+-- Countries with highest infection rate vs population
+
+SELECT Location, population, MAX(total_cases) AS HighestInfectionCount, MAX(total_cases/population)*100 AS PopulationInfectedPercentage
+FROM Covid19Data..CovidDeaths
+--WHERE Location = 'India'
+GROUP BY Location, Population
+ORDER BY PopulationInfectedPercentage DESC
+
+
+-- Highest Death Count vs Population
+
+SELECT Location, MAX(CAST(total_deaths AS INT)) AS TotalDeathCount
+FROM Covid19Data..CovidDeaths
+--WHERE Location = 'India'
+WHERE continent is not null
+GROUP BY Location
+ORDER BY TotalDeathCount DESC
+
+
+-- By Continents
+SELECT continent, MAX(CAST(total_deaths AS INT)) AS TotalDeathCount
+FROM Covid19Data..CovidDeaths
+--WHERE Location = 'India'
+WHERE continent is not null
+GROUP BY continent
+ORDER BY TotalDeathCount DESC
+
+
+-- Globally
+
+SELECT SUM(new_cases) AS total_cases, SUM (CAST(new_deaths AS INT)) AS total_deaths, SUM (CAST(new_deaths AS INT))/SUM(new_cases)*100 AS DeathPercentage
+FROM Covid19Data..CovidDeaths
+--WHERE Location = 'India'
+WHERE continent is not null
+--GROUP BY continent
+ORDER BY 1,2
+
+-- Total Population vs Vaccination
+
+
+SELECT D.continent, D.location, D.date, D.population, V.new_vaccinations, SUM(CONVERT(BIGINT,V.new_vaccinations)) OVER (PARTITION BY D.location ORDER BY D.location, D.date) AS RollingPeopleVaccinated
+FROM Covid19Data..CovidDeaths D
+JOIN Covid19Data..CovidVacs V
+	ON D.location = V.location
+	AND D.date = V.date
+WHERE D.continent is not null
+ORDER BY 2,3
+SET ANSI_WARNINGS OFF;
+GO
+
+
+--CTE
+
+WITH PopvsVac (continent, location, date, population, new_vaccinations, RollingPeopleVaccinated)
+AS
+(
+SELECT D.continent, D.location, D.date, D.population, V.new_vaccinations, SUM(CONVERT(BIGINT,V.new_vaccinations)) OVER (PARTITION BY D.location ORDER BY D.location, D.date) AS RollingPeopleVaccinated
+FROM Covid19Data..CovidDeaths D
+JOIN Covid19Data..CovidVacs V
+	ON D.location = V.location
+	AND D.date = V.date
+WHERE D.continent is not null
+--ORDER BY 2,3
+)
+SELECT * , (RollingPeopleVaccinated/population)*100
+FROM PopvsVac
